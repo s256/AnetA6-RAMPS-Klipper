@@ -15,13 +15,13 @@ My Anet A6 is modded with
 * LCD
 * LCD Kill Switch
 * Heating (Hotend + Bed)
-
-## Not Working
 * Second Extruder
 * Extruder Steps
 * Input Shaping
 * Pressure Advance
-* TMC2209 Tuning
+
+## Not Working
+* TMC2209 Tuning (needs different connection to use UART)
 
 
 ## Installation 
