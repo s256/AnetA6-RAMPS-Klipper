@@ -49,34 +49,57 @@ Both extruders must have **identical offsets (0,0)** because they share the same
 
 ---
 
-## 2. Wipe Tower (Critical)
+## 2. Purging Strategy
 
-Go to **Print Settings > Multiple Extruders**:
+When switching between filaments through a shared nozzle, the old filament must be flushed out. You have two approaches: a wipe tower (separate purge object) or purging into infill/support (no extra waste object on the bed).
 
-- **Enable Wipe Tower:** Yes (mandatory for single-nozzle setups)
-- **Wipe tower position:** Pick a corner that doesn't interfere with your print. X=5 Y=5 works if your prints are centered.
-- **Wipe tower width:** 60mm (default, increase if you see color bleed)
-- **Wipe tower rotation:** 0
+### Option A: Purge into Infill and Support (No Wipe Tower)
 
-### Purge Volumes
+This deposits the purge filament into the infill or support material of your actual print instead of building a separate tower. No wasted bed space, less wasted filament.
 
-This is the most important setting. It controls how much filament is pushed through the nozzle during a tool change to flush out the old color.
+**Setup in Print Settings > Multiple Extruders:**
 
-Go to **Purging volumes...** (button next to the wipe tower toggle):
+1. **Enable Wipe Tower:** No (disable it)
+2. On each object, right-click > **Print Settings** and enable:
+   - **Wipe into this object's infill** -- purge filament becomes part of the infill
+   - **Wipe into this object's support** -- purge filament becomes part of support material (if the object has support)
+3. Set **Purging volumes** (the button is still accessible even without the wipe tower):
+   - Start with **70 mm^3** and increase if you see color bleed
+   - Light-to-dark needs less (~70), dark-to-light needs more (~140+)
 
-The matrix shows "from extruder X to extruder Y" volumes. For example:
-- **T0 -> T1:** 70-140 mm^3
-- **T1 -> T0:** 70-140 mm^3
+**Requirements and limitations:**
+- The object needs enough infill volume on tool-change layers to absorb the purge. Use **15%+ infill** for reliable results. With very sparse infill or small objects, there may not be enough volume.
+- If infill + support can't absorb the full purge volume on a given layer, PrusaSlicer **silently falls back to a wipe tower** for that layer. Check the preview carefully.
+- The infill will be a mix of both filament colors -- this is hidden inside the part and doesn't affect strength or appearance.
+- Works best with grid, gyroid, or cubic infill patterns that have consistent volume per layer. Avoid adaptive cubic or lightning infill as their volume varies too much.
 
-Start with **70 mm^3** and increase if you see color contamination (the first few lines after a switch show the old color). Light-to-dark transitions need less purge than dark-to-light:
-- White to Black: ~70 mm^3
-- Black to White: ~140 mm^3 or more
+**Per-object setting:** The "wipe into infill/support" checkboxes are per-object. In a multi-object print, enable it on the largest objects (most infill volume) for best results.
 
-The wipe tower wastes filament, but that's inherent to single-nozzle multi-material printing. There's no way around it.
+### Option B: Wipe Tower
 
-### Wipe Tower Extruder
+A dedicated purge block printed alongside your model. Uses extra bed space and filament but guarantees clean color transitions regardless of your model's infill.
 
-Set the "Wipe tower extruder" to 0 (so it uses the first extruder for the base layers of the tower).
+**Setup in Print Settings > Multiple Extruders:**
+
+1. **Enable Wipe Tower:** Yes
+2. **Wipe tower position:** Pick a corner that doesn't interfere with your print. X=5 Y=5 works if your prints are centered.
+3. **Wipe tower width:** 60mm (default, increase if you see color bleed)
+4. **Wipe tower rotation:** 0
+5. **Wipe tower extruder:** 0 (uses the first extruder for tower base layers)
+
+### Purge Volumes (Applies to Both Options)
+
+Controls how much filament is pushed through the nozzle to flush the old color. Set via **Purging volumes...** button in Print Settings > Multiple Extruders.
+
+The matrix shows "from extruder X to extruder Y" volumes:
+
+| Transition | Recommended Volume |
+|---|---|
+| Light to dark | ~70 mm^3 |
+| Dark to light | ~140 mm^3 or more |
+| Similar colors | ~50-70 mm^3 |
+
+Start low and increase if you see color contamination in the first lines after a switch.
 
 ---
 
@@ -134,31 +157,19 @@ Before printing:
 2. Switch to **Preview** tab
 3. Use the **Color Print** view (dropdown at top) -- this shows which extruder is used in each section
 4. Check that:
-   - The wipe tower is present and doesn't overlap with your model
    - Tool changes happen where expected
-   - The wipe tower fits within your bed (X: 0-214, Y: -14 to 217)
+   - If using purge-into-infill: verify no surprise wipe tower appeared (PrusaSlicer adds one if infill volume is insufficient on some layers)
+   - If using wipe tower: verify it doesn't overlap with your model and fits on the bed
 5. Look at the G-code preview for `T0` and `T1` commands at tool change points
-
-### What the Generated G-code Does
-
-At each tool change, PrusaSlicer generates something like:
-```gcode
-; toolchange T1          ; comment marking the switch
-T1                        ; your Klipper macro activates belted_extruder
-M104 S215                 ; set new temperature (if different)
-; wipe tower moves...     ; prints the purge block to flush old filament
-G1 X... Y... E... F...    ; purge lines on wipe tower
-; resume model...         ; continues printing the actual model
-```
 
 ---
 
 ## 6. Troubleshooting
 
 ### Color Bleeding After Tool Change
-Increase purge volumes in the wipe tower settings. Dark-to-light transitions need the most purging.
+Increase purge volumes. Dark-to-light transitions need the most purging.
 
-### Strings Between Wipe Tower and Print
+### Strings at Tool Changes
 Add retraction before/after the tool change. In **Printer Settings > Extruder > Retraction**:
 - Retraction length: 1-2mm (for direct-drive BMG)
 - Retraction speed: 30-40 mm/s
@@ -173,8 +184,8 @@ Both extruders share the same Z offset and nozzle. If one filament sticks and th
 ### PrusaSlicer Shows "Extruder X is not used" Warning
 This is fine -- it just means some extruders you defined aren't assigned to any object. You can ignore it for single-extruder prints.
 
-### Wipe Tower Takes Too Much Space
-Reduce the tower width (minimum ~40mm). You can also rotate it with the angle setting. The tower height depends on how many tool changes happen -- more switches = taller tower.
+### Purge into Infill Not Working / Wipe Tower Keeps Appearing
+PrusaSlicer falls back to a wipe tower when there isn't enough infill volume to absorb the purge on a layer. Increase infill percentage, use a denser infill pattern (grid/gyroid over lightning), or accept a small wipe tower for those layers.
 
 ---
 
@@ -184,7 +195,8 @@ Reduce the tower width (minimum ~40mm). You can also rotate it with the angle se
 |---------|-------|-------|
 | Extruder count | Printer Settings > General | 2 |
 | Extruder offsets | Printer Settings > Extruder 1/2 | Both 0,0 |
-| Start G-code | Printer Settings > Custom G-code | `START_PRINT BED_TEMP=... EXTRUDER_TEMP=...` |
-| Wipe tower | Print Settings > Multiple Extruders | Enabled |
+| Start G-code | Printer Settings > Custom G-code | `START_PRINT BED_TEMP=... EXTRUDER_TEMP=... INITIAL_EXTRUDER=...` |
+| Wipe into infill | Right-click object > Print Settings | Enabled per object |
+| Wipe tower | Print Settings > Multiple Extruders | Disabled (unless purge-into-infill is insufficient) |
 | Purge volumes | Print Settings > Multiple Extruders > Purging volumes | 70-140 mm^3 |
 | Assign extruder | Right-click object > Change extruder | 1 or 2 |
