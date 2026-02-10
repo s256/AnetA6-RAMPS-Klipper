@@ -2,7 +2,7 @@
 
 Guide for setting up PrusaSlicer to use both extruders with your single-nozzle, dual-motor setup.
 
-**Key constraint:** Both filaments share one nozzle, so they must be temperature-compatible. You can mix two PLA colors, or two PETG colors, but not PLA + ABS (the nozzle can only be one temperature at a time).
+**Key constraint:** Both filaments share one nozzle and one heater. The nozzle is always at one temperature, so both filaments must be compatible at that temperature. Two PLA colors or two PETG colors works fine. PLA + ABS does not -- the nozzle can't be 210C and 250C at the same time.
 
 ---
 
@@ -17,11 +17,12 @@ In PrusaSlicer go to **Printer Settings**:
 
 **Start G-code:**
 ```
-START_PRINT BED_TEMP={first_layer_bed_temperature[0]} EXTRUDER_TEMP={first_layer_temperature[0]}
-T0 ; ensure primary extruder is active at start
+START_PRINT BED_TEMP={first_layer_bed_temperature[0]} EXTRUDER_TEMP={first_layer_temperature[0]} INITIAL_EXTRUDER={current_extruder}
 ```
 
-Using `[0]` (the first extruder's temperature) for the initial heat-up. PrusaSlicer handles temperature changes during tool switches via inline M104/M109 commands in the generated G-code.
+- `INITIAL_EXTRUDER={current_extruder}` -- PrusaSlicer resolves `{current_extruder}` to `0` or `1` depending on which extruder it uses first. The macro calls `T0` or `T1` accordingly to activate the correct feeder motor.
+- Temperature is always the same regardless of which feeder is active -- there's only one nozzle and one heater. `{first_layer_temperature[0]}` is fine since both extruder profiles should have the same temperature set anyway.
+- Works for single-extruder prints too: if you assign everything to T1, PrusaSlicer sets `current_extruder` to `1` and the macro activates the belted extruder.
 
 **End G-code:**
 ```
@@ -81,22 +82,20 @@ Set the "Wipe tower extruder" to 0 (so it uses the first extruder for the base l
 
 ## 3. Filament Profiles
 
-Create two filament profiles (or use the same profile if both filaments are the same type).
+Create two filament profiles (or use the same profile twice if both filaments are the same type/brand).
 
-**Important for shared nozzle:**
-- Both profiles should have similar nozzle temperatures. A difference of ~10C is fine (PrusaSlicer inserts temperature changes during tool switches), but large differences (>20C) cause problems: one filament will either overheat or underheat while the other prints.
-- Bed temperature must be the same for both (there's only one bed).
+**Important:** Both filament profiles should have the **same nozzle temperature** set in PrusaSlicer. There's only one heater -- if you set different temperatures, PrusaSlicer will insert M104 temperature changes at every tool switch, causing the nozzle to heat up and cool down repeatedly. This wastes time and produces inconsistent results.
+
+Pick the temperature that works for both filaments and set it identically in both profiles.
 
 ### Example: Two PLA Colors
-- Extruder 1 filament: PLA Color A, 210C
-- Extruder 2 filament: PLA Color B, 210C
-- Bed: 60C for both
+- Both filament profiles: 210C nozzle, 60C bed
+- Works perfectly -- same material, same temperature
 
-### Example: PLA + PETG (Risky)
-- PLA at 210C, PETG at 235C
-- The 25C gap means PLA sections print at 235C (too hot, will string/ooze) or PETG at 210C (too cold, won't adhere)
-- PrusaSlicer will change temperature at each tool switch, but the wipe tower prints at mixed temperatures
-- Generally not recommended for a shared nozzle
+### Example: PLA + PETG (Not Recommended)
+- PLA wants 210C, PETG wants 235C
+- No single temperature satisfies both: 210C is too cold for PETG, 235C will overheat PLA
+- Stick to filaments of the same type
 
 ---
 
