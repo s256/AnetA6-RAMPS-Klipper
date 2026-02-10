@@ -46,4 +46,5 @@ Place `moonraker.cfg` in `~/printer_data/config/moonraker.conf`.
 * [Custom Macros](docs/macros.md) -- T0/T1 switching, START_PRINT, END_PRINT
 * [Mainsail Macros](docs/mainsail-macros.md) -- Pause, resume, cancel, layer-based pausing
 * [Moonraker Config](docs/moonraker.md) -- File manager, job queue, Home Assistant PSU integration
+* [PrusaSlicer Dual Extrusion](docs/prusaslicer-dual-extrusion.md) -- Setting up PrusaSlicer for 2-in-1-out multi-material printing
 * [Configuration Review](docs/configuration-review.md) -- Issues found, missing features, recommendations
